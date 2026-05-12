@@ -14,7 +14,7 @@ import Ferias from "./pages/Ferias";
 import Medidas from "./pages/Medidas";
 import Afastamentos from "./pages/Afastamentos"; 
 import Rotatividade from "./pages/Rotatividade"; 
-import Login from "./client/src/components/Login";
+import Login from "./components/Login";
 
 function Router() {
   const [session, setSession] = useState<any>(null);
