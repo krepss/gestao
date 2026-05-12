@@ -6,7 +6,7 @@ import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ColaboradorProvider } from "./contexts/ColaboradorContext";
-import { supabase } from "./client/src/lib/supabase";
+import { supabase } from "./lib/supabase";
 // Páginas Originais e Novas
 import Dashboard from "./pages/Dashboard";
 import Efetivo from "./pages/Efetivo";
