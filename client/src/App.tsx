@@ -6,8 +6,7 @@ import { Route, Switch, useLocation } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ColaboradorProvider } from "./contexts/ColaboradorContext";
-import { supabase } from "./lib/supabase"; 
-
+import { supabase } from "./client/src/lib/supabase";
 // Páginas Originais e Novas
 import Dashboard from "./pages/Dashboard";
 import Efetivo from "./pages/Efetivo";
@@ -15,7 +14,7 @@ import Ferias from "./pages/Ferias";
 import Medidas from "./pages/Medidas";
 import Afastamentos from "./pages/Afastamentos"; 
 import Rotatividade from "./pages/Rotatividade"; 
-import Login from "./components/Login";
+import Login from "./client/src/components/Login";
 
 function Router() {
   const [session, setSession] = useState<any>(null);
