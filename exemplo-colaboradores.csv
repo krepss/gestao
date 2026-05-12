@@ -1,0 +1,9 @@
+matricula,nome,cargo,departamento,status,data_admissao,email,telefone
+MAT001,João Silva,Analista de Sistemas,TI,Ativo,15/01/2020,joao.silva@empresa.com,11999999999
+MAT002,Maria Santos,Gerente de Projetos,Projetos,Ativo,20/06/2019,maria.santos@empresa.com,11988888888
+MAT003,Pedro Oliveira,Desenvolvedor,TI,Ativo,10/03/2021,pedro.oliveira@empresa.com,11977777777
+MAT004,Ana Costa,Analista de RH,Recursos Humanos,Ativo,05/02/2022,ana.costa@empresa.com,11966666666
+MAT005,Carlos Ferreira,Gerente Administrativo,Administrativo,Ativo,12/11/2018,carlos.ferreira@empresa.com,11955555555
+MAT006,Juliana Lima,Coordenadora de Qualidade,Qualidade,Ativo,30/08/2020,juliana.lima@empresa.com,11944444444
+MAT007,Roberto Alves,Técnico de Suporte,TI,Inativo,22/04/2023,roberto.alves@empresa.com,11933333333
+MAT008,Fernanda Gomes,Especialista em Dados,TI,Ativo,18/07/2021,fernanda.gomes@empresa.com,11922222222
