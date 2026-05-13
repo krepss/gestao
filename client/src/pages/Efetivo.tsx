@@ -265,6 +265,30 @@ export default function Efetivo() {
     }
   };
 
+  // Função para calcular o tempo de empresa
+  const calcularTempoEmpresa = (dataAdmissao: string | undefined | null) => {
+    if (!dataAdmissao) return '-';
+    
+    // Como a data vem do banco no formato AAAA-MM-DD
+    const admissao = new Date(dataAdmissao);
+    const hoje = new Date();
+    
+    let anos = hoje.getFullYear() - admissao.getFullYear();
+    let meses = hoje.getMonth() - admissao.getMonth();
+
+    // Ajuste se o mês atual for anterior ao mês de admissão ou se for o mesmo mês mas o dia ainda não chegou
+    if (meses < 0 || (meses === 0 && hoje.getDate() < admissao.getDate())) {
+      anos--;
+      meses += 12;
+    }
+
+    if (anos === 0 && meses === 0) return 'Menos de 1 mês';
+    if (anos === 0) return `${meses} mês${meses > 1 ? 'es' : ''}`;
+    if (meses === 0) return `${anos} ano${anos > 1 ? 's' : ''}`;
+    
+    return `${anos} ano${anos > 1 ? 's' : ''} e ${meses} mês${meses > 1 ? 'es' : ''}`;
+  };
+
   return (
     <Layout currentPage="efetivo">
       {/* Header com Pesquisa, Importação e Botão Novo */}
@@ -339,6 +363,7 @@ export default function Efetivo() {
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Departamento</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Data Admissão</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Tempo de Empresa</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Telefone</th>
                   <th className="px-6 py-3 text-center text-sm font-semibold text-gray-700">Ações</th>
@@ -372,6 +397,9 @@ export default function Efetivo() {
                         ? colaborador.data_admissao.split('-').reverse().join('/') 
                         : '-'}
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-700 font-medium">
+                      {calcularTempoEmpresa(colaborador.data_admissao)}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-700">{colaborador.email || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-700">{colaborador.telefone || '-'}</td>
                     <td className="px-6 py-4 text-center">
@@ -379,12 +407,14 @@ export default function Efetivo() {
                         <button
                           onClick={() => handleOpenEditModal(colaborador)}
                           className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                          title="Editar"
                         >
                           <Edit2 size={16} className="text-blue-500" />
                         </button>
                         <button
                           onClick={() => handleDeleteColaborador(colaborador.matricula)}
                           className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                          title="Deletar"
                         >
                           <Trash2 size={16} className="text-red-500" />
                         </button>
