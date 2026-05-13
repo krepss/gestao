@@ -338,7 +338,9 @@ export default function Efetivo() {
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Cargo</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Departamento</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Data Admissão</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Telefone</th>
                   <th className="px-6 py-3 text-center text-sm font-semibold text-gray-700">Ações</th>
                 </tr>
               </thead>
@@ -365,7 +367,13 @@ export default function Efetivo() {
                         {colaborador.status || '-'}
                       </span>
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {colaborador.data_admissao 
+                        ? colaborador.data_admissao.split('-').reverse().join('/') 
+                        : '-'}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-700">{colaborador.email || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-700">{colaborador.telefone || '-'}</td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button
