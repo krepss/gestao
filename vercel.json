@@ -1,0 +1,26 @@
+{
+  "buildCommand": "pnpm build",
+  "devCommand": "pnpm dev",
+  "installCommand": "pnpm install",
+  "framework": "vite",
+  "outputDirectory": "dist",
+  "public": false,
+  "env": [
+    {
+      "key": "VITE_SUPABASE_URL",
+      "description": "URL do Supabase",
+      "value": "https://lselbkpetwshmgchfyyj.supabase.co"
+    },
+    {
+      "key": "VITE_SUPABASE_ANON_KEY",
+      "description": "Chave anônima do Supabase",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxzZWxia3BldHdzaG1nY2hmeXlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MDA2MjgsImV4cCI6MjA5NDE3NjYyOH0.cTtmd2p_kPo6SYLgj4Y-zKcdr0KDyYvbjGDwK-ieGAs"
+    }
+  ],
+  "regions": ["sfo1"],
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  }
+}

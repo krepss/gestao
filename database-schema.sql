@@ -259,3 +259,69 @@ VALUES
   ('MAT002', 'Suspensão', '2024-04-15', 'Comportamento inadequado', 'Suspensão de 3 dias', 'Encerrada'),
   ('MAT003', 'Repreensão', '2024-05-05', 'Não cumprimento de normas', 'Repreensão verbal registrada', 'Ativa')
 ON CONFLICT DO NOTHING;
+
+
+-- ============================================================================
+-- TABELA: afastamentos
+-- Descrição: Registro de afastamentos (licenças, dispensas, etc.)
+-- Chave Primária: id (auto-incremento)
+-- Chave Estrangeira: matricula (referencia colaboradores)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS afastamentos (
+  id BIGSERIAL PRIMARY KEY,
+  matricula VARCHAR(50) NOT NULL,
+  data_inicio DATE,
+  data_fim DATE,
+  motivo VARCHAR(500),
+  cid VARCHAR(20),
+  status VARCHAR(50),
+  observacoes VARCHAR(1000),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_afastamentos_colaboradores FOREIGN KEY (matricula) REFERENCES colaboradores(matricula) ON DELETE CASCADE
+);
+
+-- Criar índices para melhorar buscas
+CREATE INDEX IF NOT EXISTS idx_afastamentos_matricula ON afastamentos(matricula);
+CREATE INDEX IF NOT EXISTS idx_afastamentos_data_inicio ON afastamentos(data_inicio);
+CREATE INDEX IF NOT EXISTS idx_afastamentos_status ON afastamentos(status);
+CREATE INDEX IF NOT EXISTS idx_afastamentos_cid ON afastamentos(cid);
+
+-- Aplicar trigger na tabela afastamentos
+DROP TRIGGER IF EXISTS trigger_atualizar_afastamentos ON afastamentos;
+CREATE TRIGGER trigger_atualizar_afastamentos
+BEFORE UPDATE ON afastamentos
+FOR EACH ROW
+EXECUTE FUNCTION atualizar_updated_at();
+
+-- ============================================================================
+-- POLÍTICAS DE SEGURANÇA (Row Level Security - RLS)
+-- ============================================================================
+
+-- Habilitar RLS na tabela afastamentos
+ALTER TABLE afastamentos ENABLE ROW LEVEL SECURITY;
+
+-- Políticas para afastamentos
+CREATE POLICY "Permitir leitura de afastamentos" ON afastamentos
+  FOR SELECT USING (true);
+
+CREATE POLICY "Permitir inserção de afastamentos" ON afastamentos
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Permitir atualização de afastamentos" ON afastamentos
+  FOR UPDATE USING (true) WITH CHECK (true);
+
+CREATE POLICY "Permitir exclusão de afastamentos" ON afastamentos
+  FOR DELETE USING (true);
+
+-- ============================================================================
+-- DADOS DE EXEMPLO (opcional - remova em produção)
+-- ============================================================================
+
+-- Inserir alguns registros de afastamentos de exemplo
+INSERT INTO afastamentos (matricula, data_inicio, data_fim, motivo, cid, status, observacoes)
+VALUES
+  ('MAT001', '2024-05-20', '2024-06-10', 'Licença Médica', 'M79.3', 'Concluído', 'Afastamento por lesão'),
+  ('MAT002', '2024-05-15', '2024-05-17', 'Licença Paternidade', NULL, 'Concluído', 'Licença paternidade de 3 dias'),
+  ('MAT003', '2024-06-01', '2024-06-30', 'Licença Médica', 'F41.1', 'Em Andamento', 'Afastamento por ansiedade')
+ON CONFLICT DO NOTHING;
