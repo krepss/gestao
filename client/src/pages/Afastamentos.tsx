@@ -100,8 +100,9 @@ export default function Afastamentos() {
     setEditingId(afastamento.id);
     setFormData({
       matricula: afastamento.matricula,
-      data_inicio: afastamento.data_inicio || '',
-      data_fim: afastamento.data_fim || '',
+      // Garante que o input date receba apenas a parte YYYY-MM-DD
+      data_inicio: afastamento.data_inicio ? afastamento.data_inicio.split('T')[0] : '',
+      data_fim: afastamento.data_fim ? afastamento.data_fim.split('T')[0] : '',
       motivo: afastamento.motivo || '',
       cid: afastamento.cid || '',
       status: afastamento.status || 'Em Andamento',
@@ -196,6 +197,15 @@ export default function Afastamentos() {
     return `${ano}-${mes}-${dia}`;
   };
 
+  // CORREÇÃO: Função para formatar a data na tabela ignorando o fuso horário
+  const formatarDataLocal = (dataString: string | null) => {
+    if (!dataString) return '-';
+    // Pega apenas a parte YYYY-MM-DD (ignorando o T00:00:00Z se existir no banco)
+    const dataSemHora = dataString.split('T')[0]; 
+    // Inverte de YYYY-MM-DD para DD/MM/YYYY
+    return dataSemHora.split('-').reverse().join('/');
+  };
+
   // Importar CSV
   const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -279,8 +289,8 @@ export default function Afastamentos() {
       const headers = ['matricula', 'data_inicio', 'data_fim', 'motivo', 'cid', 'status', 'observacoes'];
       const rows = filteredAfastamentos.map((af) => [
         af.matricula,
-        af.data_inicio || '',
-        af.data_fim || '',
+        af.data_inicio ? af.data_inicio.split('T')[0] : '', // Exporta limpo também
+        af.data_fim ? af.data_fim.split('T')[0] : '',
         af.motivo || '',
         af.cid || '',
         af.status || '',
@@ -391,14 +401,15 @@ export default function Afastamentos() {
                     >
                       <td className="px-6 py-4 text-sm font-medium text-[#2b3674]">{afastamento.matricula}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">{colaborador?.nome || '-'}</td>
+                      
+                      {/* Células atualizadas com a nova função */}
                       <td className="px-6 py-4 text-sm text-gray-700">
-                        {afastamento.data_inicio
-                          ? new Date(afastamento.data_inicio).toLocaleDateString('pt-BR')
-                          : '-'}
+                        {formatarDataLocal(afastamento.data_inicio)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-700">
-                        {afastamento.data_fim ? new Date(afastamento.data_fim).toLocaleDateString('pt-BR') : '-'}
+                        {formatarDataLocal(afastamento.data_fim)}
                       </td>
+
                       <td className="px-6 py-4 text-sm text-gray-700">{afastamento.motivo || '-'}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">{afastamento.cid || '-'}</td>
                       <td className="px-6 py-4 text-sm">
