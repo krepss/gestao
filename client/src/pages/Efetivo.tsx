@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
 import { useColaborador } from '@/contexts/ColaboradorContext';
-import { Upload, Download, Search, Trash2, Edit2, Plus, X } from 'lucide-react';
+import { Upload, Download, Search, Trash2, Edit2, Plus, X, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
+
+type SortKey = 'matricula' | 'nome' | 'cargo' | 'departamento' | 'status' | 'data_admissao' | 'tempo_empresa' | 'email' | 'telefone';
 
 export default function Efetivo() {
   const { colaboradores, loading, addColaborador, deleteColaborador, updateColaborador } = useColaborador();
@@ -10,6 +12,10 @@ export default function Efetivo() {
   const [isImporting, setIsImporting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingMatricula, setEditingMatricula] = useState<string | null>(null);
+  
+  // Estado de Ordenação
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
+
   const [formData, setFormData] = useState({
     matricula: '',
     nome: '',
@@ -21,9 +27,27 @@ export default function Efetivo() {
     telefone: '',
   });
 
-  // Filtrar colaboradores por pesquisa
-  const filteredColaboradores = useMemo(() => {
-    return colaboradores.filter((col) => {
+  // Função para mudar a ordenação ao clicar no cabeçalho
+  const handleSort = (key: SortKey) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Ícone de ordenação do cabeçalho
+  const renderSortIcon = (key: SortKey) => {
+    if (sortConfig?.key !== key) return <ArrowUpDown size={14} className="text-gray-400 ml-1 inline" />;
+    return sortConfig.direction === 'asc' 
+      ? <ChevronUp size={16} className="text-[#2b3674] ml-1 inline font-bold" /> 
+      : <ChevronDown size={16} className="text-[#2b3674] ml-1 inline font-bold" />;
+  };
+
+  // Filtrar e Ordenar colaboradores
+  const processedColaboradores = useMemo(() => {
+    // 1. Filtrar
+    let filtered = colaboradores.filter((col) => {
       const searchLower = searchTerm.toLowerCase();
       return (
         (col.matricula?.toLowerCase().includes(searchLower) || false) ||
@@ -32,7 +56,38 @@ export default function Efetivo() {
         (col.departamento?.toLowerCase().includes(searchLower) || false)
       );
     });
-  }, [colaboradores, searchTerm]);
+
+    // 2. Ordenar
+    if (sortConfig !== null) {
+      filtered.sort((a, b) => {
+        let aValue = a[sortConfig.key as keyof typeof a];
+        let bValue = b[sortConfig.key as keyof typeof b];
+
+        // Lógica especial para Tempo de Empresa (baseada na data de admissão invertida)
+        if (sortConfig.key === 'tempo_empresa') {
+          aValue = a.data_admissao as any;
+          bValue = b.data_admissao as any;
+          if (!aValue) return 1;
+          if (!bValue) return -1;
+          // Ascendente = Menos tempo (Data mais recente/maior)
+          // Descendente = Mais tempo (Data mais antiga/menor)
+          return sortConfig.direction === 'asc'
+            ? (aValue > bValue ? -1 : 1)
+            : (aValue < bValue ? -1 : 1);
+        }
+
+        // Para strings e outros campos normais
+        if (!aValue) return 1; // Joga os nulos para o final
+        if (!bValue) return -1;
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [colaboradores, searchTerm, sortConfig]);
 
   // Abrir modal para novo colaborador
   const handleOpenNewModal = () => {
@@ -129,7 +184,7 @@ export default function Efetivo() {
   const handleExportCSV = () => {
     try {
       const headers = ['matricula', 'nome', 'cargo', 'departamento', 'status', 'data_admissao', 'email', 'telefone'];
-      const rows = filteredColaboradores.map((col) => [
+      const rows = processedColaboradores.map((col) => [
         col.matricula,
         col.nome || '',
         col.cargo || '',
@@ -172,10 +227,8 @@ export default function Efetivo() {
   // Função para converter data DD/MM/AAAA para YYYY-MM-DD
   const converterDataBrasileira = (data: string): string | null => {
     if (!data || data.trim() === '') return null;
-
     const regex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
     const match = data.match(regex);
-
     if (!match) return null;
 
     const dia = String(match[1]).padStart(2, '0');
@@ -195,10 +248,8 @@ export default function Efetivo() {
       const text = await file.text();
       const lines = text.split('\n');
 
-      // Assumir que a primeira linha é o header
       const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
 
-      // Índices das colunas
       const matriculaIndex = headers.indexOf('matricula');
       const nomeIndex = headers.indexOf('nome');
       const cargoIndex = headers.indexOf('cargo');
@@ -216,7 +267,6 @@ export default function Efetivo() {
       let successCount = 0;
       let errorCount = 0;
 
-      // Processar cada linha
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
@@ -269,14 +319,12 @@ export default function Efetivo() {
   const calcularTempoEmpresa = (dataAdmissao: string | undefined | null) => {
     if (!dataAdmissao) return '-';
     
-    // Como a data vem do banco no formato AAAA-MM-DD
     const admissao = new Date(dataAdmissao);
     const hoje = new Date();
     
     let anos = hoje.getFullYear() - admissao.getFullYear();
     let meses = hoje.getMonth() - admissao.getMonth();
 
-    // Ajuste se o mês atual for anterior ao mês de admissão ou se for o mesmo mês mas o dia ainda não chegou
     if (meses < 0 || (meses === 0 && hoje.getDate() < admissao.getDate())) {
       anos--;
       meses += 12;
@@ -293,7 +341,6 @@ export default function Efetivo() {
     <Layout currentPage="efetivo">
       {/* Header com Pesquisa, Importação e Botão Novo */}
       <div className="flex flex-col md:flex-row gap-4 mb-8 items-center justify-between">
-        {/* Pesquisa */}
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-3 text-gray-400" size={20} />
           <input
@@ -305,9 +352,7 @@ export default function Efetivo() {
           />
         </div>
 
-        {/* Botões */}
         <div className="flex gap-2">
-          {/* Botão Novo */}
           <button
             onClick={handleOpenNewModal}
             className="flex items-center gap-2 px-4 py-2 bg-[#2b3674] text-white rounded-lg hover:bg-blue-800 transition-colors"
@@ -316,7 +361,6 @@ export default function Efetivo() {
             <span>Novo</span>
           </button>
 
-          {/* Botão Exportar */}
           <button
             onClick={handleExportCSV}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -325,7 +369,6 @@ export default function Efetivo() {
             <span>Exportar</span>
           </button>
 
-          {/* Botão Importação */}
           <label className="flex items-center gap-2 px-4 py-2 bg-[#2b3674] text-white rounded-lg hover:bg-blue-800 transition-colors cursor-pointer">
             <Upload size={20} />
             <span>Importar</span>
@@ -346,7 +389,7 @@ export default function Efetivo() {
           <div className="flex items-center justify-center h-96">
             <p className="text-gray-500">Carregando colaboradores...</p>
           </div>
-        ) : filteredColaboradores.length === 0 ? (
+        ) : processedColaboradores.length === 0 ? (
           <div className="flex items-center justify-center h-96">
             <p className="text-gray-500">
               {colaboradores.length === 0 ? 'Nenhum colaborador cadastrado' : 'Nenhum resultado encontrado'}
@@ -355,25 +398,45 @@ export default function Efetivo() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-gray-50 border-b border-gray-200 select-none">
                 <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Matrícula</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Nome</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Cargo</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Departamento</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Data Admissão</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Tempo de Empresa</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Telefone</th>
-                  <th className="px-6 py-3 text-center text-sm font-semibold text-gray-700">Ações</th>
+                  <th onClick={() => handleSort('matricula')} className="px-6 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors">
+                    Matrícula {renderSortIcon('matricula')}
+                  </th>
+                  <th onClick={() => handleSort('nome')} className="px-6 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors">
+                    Nome {renderSortIcon('nome')}
+                  </th>
+                  <th onClick={() => handleSort('cargo')} className="px-6 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors">
+                    Cargo {renderSortIcon('cargo')}
+                  </th>
+                  <th onClick={() => handleSort('departamento')} className="px-6 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors">
+                    Departamento {renderSortIcon('departamento')}
+                  </th>
+                  <th onClick={() => handleSort('status')} className="px-6 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors">
+                    Status {renderSortIcon('status')}
+                  </th>
+                  <th onClick={() => handleSort('data_admissao')} className="px-6 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors">
+                    Data Admissão {renderSortIcon('data_admissao')}
+                  </th>
+                  <th onClick={() => handleSort('tempo_empresa')} className="px-6 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap">
+                    Tempo de Empresa {renderSortIcon('tempo_empresa')}
+                  </th>
+                  <th onClick={() => handleSort('email')} className="px-6 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors">
+                    Email {renderSortIcon('email')}
+                  </th>
+                  <th onClick={() => handleSort('telefone')} className="px-6 py-3 text-left text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors">
+                    Telefone {renderSortIcon('telefone')}
+                  </th>
+                  <th className="px-6 py-3 text-center text-sm font-semibold text-gray-700">
+                    Ações
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredColaboradores.map((colaborador, index) => (
+                {processedColaboradores.map((colaborador, index) => (
                   <tr
                     key={colaborador.matricula}
-                    className={`border-b border-gray-200 hover:bg-gray-50 transition-colors ${
+                    className={`border-b border-gray-200 hover:bg-gray-100 transition-colors ${
                       index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
                     }`}
                   >
@@ -397,7 +460,7 @@ export default function Efetivo() {
                         ? colaborador.data_admissao.split('-').reverse().join('/') 
                         : '-'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 font-medium">
+                    <td className="px-6 py-4 text-sm text-gray-700 font-medium whitespace-nowrap">
                       {calcularTempoEmpresa(colaborador.data_admissao)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">{colaborador.email || '-'}</td>
@@ -428,23 +491,10 @@ export default function Efetivo() {
         )}
       </div>
 
-      {/* Informações de Importação */}
-      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-800">
-          <strong>Dica:</strong> Para importar colaboradores, prepare um arquivo CSV com as colunas:
-          <code className="bg-white px-2 py-1 rounded ml-2">
-            matricula, nome, cargo, departamento, status, data_admissao, email, telefone
-          </code>
-        </p>
-        <p className="text-xs text-blue-700 mt-2">
-          As datas devem estar no formato DD/MM/AAAA (ex: 15/01/2020)
-        </p>
-      </div>
-
       {/* Modal para Novo/Editar Colaborador */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md max-h-96 overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-[#2b3674]">
                 {editingMatricula ? 'Editar Colaborador' : 'Novo Colaborador'}
