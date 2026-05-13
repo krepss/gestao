@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
 import { useColaborador } from '@/contexts/ColaboradorContext';
-import { Upload, Search, Trash2, Edit2, Plus, X } from 'lucide-react';
+import { Upload, Download, Search, Trash2, Edit2, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Efetivo() {
@@ -122,6 +122,38 @@ export default function Efetivo() {
       handleCloseModal();
     } catch (err) {
       toast.error('Erro ao salvar colaborador');
+    }
+  };
+
+  // Exportar CSV
+  const handleExportCSV = () => {
+    try {
+      const headers = ['matricula', 'nome', 'cargo', 'departamento', 'status', 'data_admissao', 'email', 'telefone'];
+      const rows = filteredColaboradores.map((col) => [
+        col.matricula,
+        col.nome || '',
+        col.cargo || '',
+        col.departamento || '',
+        col.status || '',
+        col.data_admissao || '',
+        col.email || '',
+        col.telefone || '',
+      ]);
+
+      const csv = [headers, ...rows].map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `colaboradores_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Arquivo exportado com sucesso!');
+    } catch (err) {
+      console.error('Erro ao exportar:', err);
+      toast.error('Erro ao exportar arquivo');
     }
   };
 
@@ -258,6 +290,15 @@ export default function Efetivo() {
           >
             <Plus size={20} />
             <span>Novo</span>
+          </button>
+
+          {/* Botão Exportar */}
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Download size={20} />
+            <span>Exportar</span>
           </button>
 
           {/* Botão Importação */}

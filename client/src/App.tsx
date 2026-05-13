@@ -1,62 +1,36 @@
-import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch, useLocation } from "wouter";
+import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ColaboradorProvider } from "./contexts/ColaboradorContext";
-import { supabase } from "./lib/supabase";
-// Páginas Originais e Novas
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { PrivateRoute } from "./components/PrivateRoute";
+import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Efetivo from "./pages/Efetivo";
 import Ferias from "./pages/Ferias";
 import Medidas from "./pages/Medidas";
-import Afastamentos from "./pages/Afastamentos"; 
-import Rotatividade from "./pages/Rotatividade"; 
-import Login from "./components/Login";
+import Afastamentos from "./pages/Afastamentos";
 
 function Router() {
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [, setLocation] = useLocation();
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    // Pega sessão inicial
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    // Escuta Login/Logout
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (!session) setLocation("/"); // Redireciona para a raiz (que mostrará o login)
-    });
-
-    return () => subscription.unsubscribe();
-  }, [setLocation]);
-
-  if (loading) return null;
-
-  // Se NÃO estiver logado, o Switch só conhece a rota de Login
-  if (!session) {
-    return (
-      <Switch>
-        <Route component={Login} />
-      </Switch>
-    );
+  if (loading) {
+    return null;
   }
 
-  // Se ESTIVER logado, mantém todas as tuas rotas originais + as novas
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/efetivo" component={Efetivo} />
-      <Route path="/ferias" component={Ferias} />
-      <Route path="/medidas" component={Medidas} />
-      <Route path="/afastamentos" component={Afastamentos} />
-      <Route path="/rotatividade" component={Rotatividade} />
+      <Route path={"/login"} component={Login} />
+      <Route path={"/"} component={() => <PrivateRoute component={Dashboard} />} />
+      <Route path={"/efetivo"} component={() => <PrivateRoute component={Efetivo} />} />
+      <Route path={"/ferias"} component={() => <PrivateRoute component={Ferias} />} />
+      <Route path={"/medidas"} component={() => <PrivateRoute component={Medidas} />} />
+      <Route path={"/afastamentos"} component={() => <PrivateRoute component={Afastamentos} />} />
+      <Route path={"/404"} component={NotFound} />
+      {/* Final fallback route */}
       <Route component={NotFound} />
     </Switch>
   );
@@ -65,14 +39,19 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light">
-        <ColaboradorProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </ColaboradorProvider>
-      </ThemeProvider>
+      <AuthProvider>
+        <ThemeProvider
+          defaultTheme="light"
+          // switchable
+        >
+          <ColaboradorProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </ColaboradorProvider>
+        </ThemeProvider>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
 import { useColaborador } from '@/contexts/ColaboradorContext';
-import { Plus, Trash2, Edit2, Search, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, Search, X, Upload, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Ferias() {
@@ -105,6 +105,118 @@ export default function Ferias() {
     }
   };
 
+  // Converter data DD/MM/AAAA para YYYY-MM-DD
+  const converterDataBrasileira = (data: string): string | null => {
+    if (!data || data.trim() === '') return null;
+    const regex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+    const match = data.match(regex);
+    if (!match) return null;
+    const dia = String(match[1]).padStart(2, '0');
+    const mes = String(match[2]).padStart(2, '0');
+    const ano = match[3];
+    return `${ano}-${mes}-${dia}`;
+  };
+
+  // Importar CSV
+  const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const lines = text.split('\n');
+      const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
+
+      const matriculaIndex = headers.indexOf('matricula');
+      const dataInicioIndex = headers.indexOf('data_inicio');
+      const dataFimIndex = headers.indexOf('data_fim');
+      const diasUtilizadosIndex = headers.indexOf('dias_utilizados');
+      const diasRestantesIndex = headers.indexOf('dias_restantes');
+      const statusIndex = headers.indexOf('status');
+      const observacoesIndex = headers.indexOf('observacoes');
+
+      if (matriculaIndex === -1 || dataInicioIndex === -1) {
+        toast.error('CSV deve conter colunas "matricula" e "data_inicio"');
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const values = line.split(',').map((v) => v.trim());
+        const matricula = values[matriculaIndex];
+        const dataInicio = values[dataInicioIndex];
+
+        if (!matricula || !dataInicio) {
+          errorCount++;
+          continue;
+        }
+
+        try {
+          const novaFeria = {
+            matricula,
+            data_inicio: converterDataBrasileira(dataInicio),
+            data_fim: values[dataFimIndex] ? converterDataBrasileira(values[dataFimIndex]) : null,
+            dias_utilizados: values[diasUtilizadosIndex] ? parseInt(values[diasUtilizadosIndex]) : null,
+            dias_restantes: values[diasRestantesIndex] ? parseInt(values[diasRestantesIndex]) : null,
+            status: values[statusIndex] || 'Agendada',
+            observacoes: values[observacoesIndex] || null,
+          };
+
+          await addFerias(novaFeria);
+          successCount++;
+        } catch (err) {
+          errorCount++;
+        }
+      }
+
+      toast.success(`${successCount} férias importadas com sucesso!`);
+      if (errorCount > 0) {
+        toast.warning(`${errorCount} linha(s) falharam na importação`);
+      }
+    } catch (err) {
+      console.error('Erro ao processar CSV:', err);
+      toast.error('Erro ao processar arquivo CSV');
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  // Exportar CSV
+  const handleExportCSV = () => {
+    try {
+      const headers = ['matricula', 'data_inicio', 'data_fim', 'dias_utilizados', 'dias_restantes', 'status', 'observacoes'];
+      const rows = filteredFerias.map((f) => [
+        f.matricula,
+        f.data_inicio || '',
+        f.data_fim || '',
+        f.dias_utilizados || '',
+        f.dias_restantes || '',
+        f.status || '',
+        f.observacoes || '',
+      ]);
+
+      const csv = [headers, ...rows].map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ferias_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Arquivo exportado com sucesso!');
+    } catch (err) {
+      console.error('Erro ao exportar:', err);
+      toast.error('Erro ao exportar arquivo');
+    }
+  };
+
   const handleDelete = async (id: number) => {
     if (confirm('Tem certeza que deseja deletar este registro de férias?')) {
       try {
@@ -132,14 +244,35 @@ export default function Ferias() {
           />
         </div>
 
-        {/* Botão Novo */}
-        <button
-          onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 px-4 py-2 bg-[#2b3674] text-white rounded-lg hover:bg-blue-800 transition-colors"
-        >
-          <Plus size={20} />
-          <span>Nova Féria</span>
-        </button>
+        {/* Botões */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleOpenModal()}
+            className="flex items-center gap-2 px-4 py-2 bg-[#2b3674] text-white rounded-lg hover:bg-blue-800 transition-colors"
+          >
+            <Plus size={20} />
+            <span>Nova Féria</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Download size={20} />
+            <span>Exportar</span>
+          </button>
+
+          <label className="flex items-center gap-2 px-4 py-2 bg-[#2b3674] text-white rounded-lg hover:bg-blue-800 transition-colors cursor-pointer">
+            <Upload size={20} />
+            <span>Importar</span>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleCSVUpload}
+              className="hidden"
+            />
+          </label>
+        </div>
       </div>
 
       {/* Tabela de Férias */}

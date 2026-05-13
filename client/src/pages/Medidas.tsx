@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
 import { useColaborador } from '@/contexts/ColaboradorContext';
-import { Plus, Trash2, Edit2, Search, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, Search, X, Upload, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Medidas() {
@@ -111,6 +111,120 @@ export default function Medidas() {
     }
   };
 
+  // Converter data DD/MM/AAAA para YYYY-MM-DD
+  const converterDataBrasileira = (data: string): string | null => {
+    if (!data || data.trim() === '') return null;
+    const regex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+    const match = data.match(regex);
+    if (!match) return null;
+    const dia = String(match[1]).padStart(2, '0');
+    const mes = String(match[2]).padStart(2, '0');
+    const ano = match[3];
+    return `${ano}-${mes}-${dia}`;
+  };
+
+  // Importar CSV
+  const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const lines = text.split('\n');
+      const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
+
+      const matriculaIndex = headers.indexOf('matricula');
+      const tipoMedidaIndex = headers.indexOf('tipo_medida');
+      const dataAplicacaoIndex = headers.indexOf('data_aplicacao');
+      const motivoIndex = headers.indexOf('motivo');
+      const descricaoIndex = headers.indexOf('descricao');
+      const statusIndex = headers.indexOf('status');
+      const dataEncerramentoIndex = headers.indexOf('data_encerramento');
+      const observacoesIndex = headers.indexOf('observacoes');
+
+      if (matriculaIndex === -1) {
+        toast.error('CSV deve conter coluna "matricula"');
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const values = line.split(',').map((v) => v.trim());
+        const matricula = values[matriculaIndex];
+
+        if (!matricula) {
+          errorCount++;
+          continue;
+        }
+
+        try {
+          const novaMedida = {
+            matricula,
+            tipo_medida: values[tipoMedidaIndex] || null,
+            data_aplicacao: values[dataAplicacaoIndex] ? converterDataBrasileira(values[dataAplicacaoIndex]) : null,
+            motivo: values[motivoIndex] || null,
+            descricao: values[descricaoIndex] || null,
+            status: values[statusIndex] || 'Ativa',
+            data_encerramento: values[dataEncerramentoIndex] ? converterDataBrasileira(values[dataEncerramentoIndex]) : null,
+            observacoes: values[observacoesIndex] || null,
+          };
+
+          await addMedida(novaMedida);
+          successCount++;
+        } catch (err) {
+          errorCount++;
+        }
+      }
+
+      toast.success(`${successCount} medida(s) importada(s) com sucesso!`);
+      if (errorCount > 0) {
+        toast.warning(`${errorCount} linha(s) falharam na importação`);
+      }
+    } catch (err) {
+      console.error('Erro ao processar CSV:', err);
+      toast.error('Erro ao processar arquivo CSV');
+    } finally {
+      event.target.value = '';
+    }
+  };
+
+  // Exportar CSV
+  const handleExportCSV = () => {
+    try {
+      const headers = ['matricula', 'tipo_medida', 'data_aplicacao', 'motivo', 'descricao', 'status', 'data_encerramento', 'observacoes'];
+      const rows = filteredMedidas.map((m) => [
+        m.matricula,
+        m.tipo_medida || '',
+        m.data_aplicacao || '',
+        m.motivo || '',
+        m.descricao || '',
+        m.status || '',
+        m.data_encerramento || '',
+        m.observacoes || '',
+      ]);
+
+      const csv = [headers, ...rows].map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `medidas_disciplinares_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Arquivo exportado com sucesso!');
+    } catch (err) {
+      console.error('Erro ao exportar:', err);
+      toast.error('Erro ao exportar arquivo');
+    }
+  };
+
   const handleDelete = async (id: number) => {
     if (confirm('Tem certeza que deseja deletar esta medida disciplinar?')) {
       try {
@@ -138,14 +252,35 @@ export default function Medidas() {
           />
         </div>
 
-        {/* Botão Novo */}
-        <button
-          onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 px-4 py-2 bg-[#2b3674] text-white rounded-lg hover:bg-blue-800 transition-colors"
-        >
-          <Plus size={20} />
-          <span>Nova Medida</span>
-        </button>
+        {/* Botões */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleOpenModal()}
+            className="flex items-center gap-2 px-4 py-2 bg-[#2b3674] text-white rounded-lg hover:bg-blue-800 transition-colors"
+          >
+            <Plus size={20} />
+            <span>Nova Medida</span>
+          </button>
+
+          <button
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Download size={20} />
+            <span>Exportar</span>
+          </button>
+
+          <label className="flex items-center gap-2 px-4 py-2 bg-[#2b3674] text-white rounded-lg hover:bg-blue-800 transition-colors cursor-pointer">
+            <Upload size={20} />
+            <span>Importar</span>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleCSVUpload}
+              className="hidden"
+            />
+          </label>
+        </div>
       </div>
 
       {/* Tabela de Medidas */}
@@ -276,10 +411,9 @@ export default function Medidas() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Selecione um tipo</option>
-                  <option value="Advertência">Advertência</option>
-                  <option value="Repreensão">Repreensão</option>
+                  <option value="Advertência Verbal">Advertência Verbal</option>
+                  <option value="Advertência Escrita">Advertência Escrita</option>
                   <option value="Suspensão">Suspensão</option>
-                  <option value="Demissão">Demissão</option>
                 </select>
               </div>
 
