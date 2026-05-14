@@ -216,6 +216,13 @@ export default function Rotatividade() {
     return `${ano}-${mes}-${dia}`;
   };
 
+  // CORREÇÃO: Função para formatar a data na tabela ignorando o fuso horário
+  const formatarDataLocal = (dataString: string | null) => {
+    if (!dataString) return '-';
+    const dataSemHora = dataString.split('T')[0]; 
+    return dataSemHora.split('-').reverse().join('/');
+  };
+
   // Importar CSV
   const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -294,7 +301,7 @@ export default function Rotatividade() {
       const headers = ['matricula', 'data_saida', 'motivo', 'descricao', 'departamento_destino', 'responsavel_desligamento', 'observacoes'];
       const rows = filteredRotatividades.map((rot) => [
         rot.matricula,
-        rot.data_saida || '',
+        rot.data_saida ? rot.data_saida.split('T')[0] : '', // Exporta limpo
         rot.motivo || '',
         rot.descricao || '',
         rot.departamento_destino || '',
@@ -405,11 +412,12 @@ export default function Rotatividade() {
                     >
                       <td className="px-6 py-4 text-sm font-medium text-[#2b3674]">{rotatividade.matricula}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">{colaborador?.nome || '-'}</td>
+                      
+                      {/* Utilizando a nova função de formatação de data para evitar bug de fuso horário */}
                       <td className="px-6 py-4 text-sm text-gray-700">
-                        {rotatividade.data_saida
-                          ? new Date(rotatividade.data_saida).toLocaleDateString('pt-BR')
-                          : '-'}
+                        {formatarDataLocal(rotatividade.data_saida)}
                       </td>
+
                       <td className="px-6 py-4 text-sm text-gray-700">{rotatividade.motivo || '-'}</td>
                       <td className="px-6 py-4 text-sm text-gray-700 max-w-xs truncate">{rotatividade.descricao || '-'}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">{rotatividade.responsavel_desligamento || '-'}</td>
@@ -438,10 +446,23 @@ export default function Rotatividade() {
         )}
       </div>
 
+      {/* DICA DE IMPORTAÇÃO PARA ROTATIVIDADE */}
+      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p className="text-sm text-blue-800">
+          <strong>Dica:</strong> Para importar registos de rotatividade, prepare um arquivo CSV com as colunas:
+          <code className="bg-white px-2 py-1 rounded ml-2 font-mono text-xs shadow-sm">
+            matricula, data_saida, motivo, descricao, departamento_destino, responsavel_desligamento, observacoes
+          </code>
+        </p>
+        <p className="text-xs text-blue-700 mt-2 flex items-center gap-1">
+          <span className="font-semibold">Importante:</span> As datas devem estar no formato DD/MM/AAAA (ex: 15/01/2020)
+        </p>
+      </div>
+
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl max-h-96 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-[#2b3674]">
                 {editingId ? 'Editar Rotatividade' : 'Nova Rotatividade'}
@@ -461,7 +482,8 @@ export default function Rotatividade() {
                 <select
                   value={formData.matricula}
                   onChange={(e) => setFormData({ ...formData, matricula: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={!!editingId}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
                 >
                   <option value="">Selecione um colaborador</option>
                   {colaboradores.map((col) => (
@@ -547,7 +569,7 @@ export default function Rotatividade() {
               </div>
 
               {/* Botões */}
-              <div className="flex gap-2 justify-end">
+              <div className="flex gap-2 justify-end pt-4">
                 <button
                   type="button"
                   onClick={handleCloseModal}
