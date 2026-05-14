@@ -31,13 +31,19 @@ export default function Ferias() {
     });
   }, [ferias, colaboradores, searchTerm]);
 
+  // Formatar data para YYYY-MM-DD no input type="date"
+  const formatarDataInput = (data: string | null) => {
+    if (!data) return '';
+    return data.split('T')[0];
+  };
+
   const handleOpenModal = (feria?: typeof ferias[0]) => {
     if (feria) {
       setEditingId(feria.id);
       setFormData({
         matricula: feria.matricula,
-        data_inicio: feria.data_inicio || '',
-        data_fim: feria.data_fim || '',
+        data_inicio: formatarDataInput(feria.data_inicio),
+        data_fim: formatarDataInput(feria.data_fim),
         dias_utilizados: feria.dias_utilizados?.toString() || '',
         dias_restantes: feria.dias_restantes?.toString() || '',
         status: feria.status || 'Agendada',
@@ -117,6 +123,13 @@ export default function Ferias() {
     return `${ano}-${mes}-${dia}`;
   };
 
+  // CORREÇÃO: Função para formatar a data na tabela ignorando o fuso horário
+  const formatarDataLocal = (dataString: string | null) => {
+    if (!dataString) return '-';
+    const dataSemHora = dataString.split('T')[0]; 
+    return dataSemHora.split('-').reverse().join('/');
+  };
+
   // Importar CSV
   const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -192,8 +205,8 @@ export default function Ferias() {
       const headers = ['matricula', 'data_inicio', 'data_fim', 'dias_utilizados', 'dias_restantes', 'status', 'observacoes'];
       const rows = filteredFerias.map((f) => [
         f.matricula,
-        f.data_inicio || '',
-        f.data_fim || '',
+        f.data_inicio ? f.data_inicio.split('T')[0] : '', // Exporta limpo
+        f.data_fim ? f.data_fim.split('T')[0] : '',
         f.dias_utilizados || '',
         f.dias_restantes || '',
         f.status || '',
@@ -313,12 +326,15 @@ export default function Ferias() {
                     >
                       <td className="px-6 py-4 text-sm font-medium text-[#2b3674]">{feria.matricula}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">{colaborador?.nome || '-'}</td>
+                      
+                      {/* Corrigido o bug do fuso horário na visualização da data */}
                       <td className="px-6 py-4 text-sm text-gray-700">
-                        {feria.data_inicio ? new Date(feria.data_inicio).toLocaleDateString('pt-BR') : '-'}
+                        {formatarDataLocal(feria.data_inicio)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-700">
-                        {feria.data_fim ? new Date(feria.data_fim).toLocaleDateString('pt-BR') : '-'}
+                        {formatarDataLocal(feria.data_fim)}
                       </td>
+                      
                       <td className="px-6 py-4 text-sm text-gray-700">{feria.dias_utilizados || '-'}</td>
                       <td className="px-6 py-4 text-sm">
                         <span
@@ -356,6 +372,19 @@ export default function Ferias() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* DICA DE IMPORTAÇÃO PARA FÉRIAS */}
+      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p className="text-sm text-blue-800">
+          <strong>Dica:</strong> Para importar férias, prepare um arquivo CSV com as colunas:
+          <code className="bg-white px-2 py-1 rounded ml-2 font-mono text-xs shadow-sm">
+            matricula, data_inicio, data_fim, dias_utilizados, dias_restantes, status, observacoes
+          </code>
+        </p>
+        <p className="text-xs text-blue-700 mt-2 flex items-center gap-1">
+          <span className="font-semibold">Importante:</span> As datas devem estar no formato DD/MM/AAAA (ex: 15/01/2020)
+        </p>
       </div>
 
       {/* Modal */}
