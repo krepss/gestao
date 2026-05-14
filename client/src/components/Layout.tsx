@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Menu, X, BarChart3, Users, LogOut, Calendar } from 'lucide-react';
+import { Menu, X, BarChart3, Users, LogOut, Calendar, UserX } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentPage: 'dashboard' | 'efetivo' | 'ferias' | 'medidas' | 'afastamentos';
+  currentPage: 'dashboard' | 'efetivo' | 'ferias' | 'medidas' | 'afastamentos' | 'rotatividade';
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, currentPage }) => {
@@ -52,8 +52,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage }) => {
     {
       id: 'medidas',
       label: 'Medidas Disciplinares',
-      icon: Users,
+      icon: Calendar,
       href: '/medidas',
+    },
+    {
+      id: 'rotatividade',
+      label: 'Rotatividade',
+      icon: UserX,
+      href: '/rotatividade',
     },
   ];
 

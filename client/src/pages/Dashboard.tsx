@@ -3,11 +3,7 @@ import { Layout } from '@/components/Layout';
 import { useColaborador } from '@/contexts/ColaboradorContext';
 import { supabase } from '@/lib/supabase';
 import { Users, AlertCircle, TrendingDown, CheckCircle, Clock } from 'lucide-react';
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, 
-  Legend, ResponsiveContainer, BarChart, Bar, PieChart, 
-  Pie, Cell 
-} from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 
 interface Ferias {
   id: number;
@@ -27,9 +23,12 @@ export default function Dashboard() {
   const [medidas, setMedidas] = useState<MedidaDisciplinar[]>([]);
   const [afastamentos, setAfastamentos] = useState<any[]>([]);
 
-  // Carregar dados adicionais das tabelas do Supabase
+  // Carregar dados adicionais
   useEffect(() => {
     loadAdditionalData();
+    // Recarregar a cada 5 segundos para manter sincronizado
+    const interval = setInterval(loadAdditionalData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const loadAdditionalData = async () => {
@@ -43,24 +42,22 @@ export default function Dashboard() {
       if (feriasRes.data) setFerias(feriasRes.data);
       if (medidasRes.data) setMedidas(medidasRes.data);
       if (afastamentosRes.data) setAfastamentos(afastamentosRes.data);
-    } catch (error) {
-      console.error('Erro ao carregar dados adicionais:', error);
+    } catch (err) {
+      console.error('Erro ao carregar dados adicionais:', err);
     }
   };
 
-  // Calcular estatísticas e dados dos gráficos
+  // Calcular estatísticas
   const stats = useMemo(() => {
     const totalColaboradores = colaboradores.length;
     const colaboradoresAtivos = colaboradores.filter((c) => c.status === 'Ativo').length;
     const colaboradoresInativos = totalColaboradores - colaboradoresAtivos;
-    
-    // CORREÇÃO: Agora conta os dados da tabela 'afastamentos' em vez de 'faltas'
-    const totalAfastamentos = afastamentos.length; 
-    
+    // Contar afastamentos (nao faltas)
+    const totalAfastamentos = afastamentos.length;
     const totalFeriasAtivas = ferias.filter((f) => f.status === 'Em Andamento' || f.status === 'Agendada').length;
     const totalMedidasAtivas = medidas.filter((m) => m.status === 'Ativa').length;
 
-    // Lógica para o gráfico de Absenteísmo (baseado em faltas mensais)
+    // Calcular taxa de absenteísmo por mês
     const absenteismoPorMes: Record<string, { mes: string; faltas: number; horas: number }> = {};
 
     faltas.forEach((falta) => {
@@ -83,10 +80,10 @@ export default function Dashboard() {
         const [mesB, anoB] = b.mes.split('/');
         return new Date(parseInt(anoA), parseInt(mesA) - 1).getTime() - new Date(parseInt(anoB), parseInt(mesB) - 1).getTime();
       })
-      .slice(-6); // Mostrar apenas os últimos 6 meses
+      .slice(-6); // Últimos 6 meses
 
-    // Dados para o gráfico de pizza (Ativos vs Inativos)
-    const graficoColaboradores = [
+    // Dados para gráfico de pizza (Ativos vs Inativos)
+    const graficoColaradores = [
       { name: 'Ativos', value: colaboradoresAtivos, fill: '#10b981' },
       { name: 'Inativos', value: colaboradoresInativos, fill: '#ef4444' },
     ];
@@ -99,17 +96,15 @@ export default function Dashboard() {
       totalFeriasAtivas,
       totalMedidasAtivas,
       graficoAbsenteismo,
-      graficoColaboradores,
+      graficoColaradores,
     };
-    
-    // CORREÇÃO: Adicionado 'afastamentos' como dependência para o Dashboard atualizar sozinho
   }, [colaboradores, faltas, ferias, medidas, afastamentos]);
 
   if (loading) {
     return (
       <Layout currentPage="dashboard">
         <div className="flex items-center justify-center h-96">
-          <p className="text-gray-500 text-lg">A carregar indicadores...</p>
+          <p className="text-gray-500">Carregando dados...</p>
         </div>
       </Layout>
     );
@@ -117,118 +112,160 @@ export default function Dashboard() {
 
   return (
     <Layout currentPage="dashboard">
-      {/* Cards de Indicadores Rápidos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600">
+      {/* Cards de Estatísticas - Primeira Linha */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {/* Card: Total de Colaboradores */}
+        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 font-medium">Total de Colaboradores</p>
-              <h3 className="text-2xl font-bold text-[#2b3674]">{stats.totalColaboradores}</h3>
+              <p className="text-gray-600 text-sm font-medium">Total de Colaboradores</p>
+              <p className="text-3xl font-bold text-[#2b3674] mt-2">{stats.totalColaboradores}</p>
             </div>
-            <div className="p-3 bg-blue-50 rounded-full">
-              <Users className="text-blue-600" size={24} />
+            <div className="bg-blue-100 p-4 rounded-lg">
+              <Users size={28} className="text-blue-500" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-amber-500">
+        {/* Card: Colaboradores Ativos */}
+        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 font-medium">Afastamentos</p>
-              <h3 className="text-2xl font-bold text-[#2b3674]">{stats.totalAfastamentos}</h3>
+              <p className="text-gray-600 text-sm font-medium">Colaboradores Ativos</p>
+              <p className="text-3xl font-bold text-[#2b3674] mt-2">{stats.colaboradoresAtivos}</p>
             </div>
-            <div className="p-3 bg-amber-50 rounded-full">
-              <AlertCircle className="text-amber-500" size={24} />
+            <div className="bg-green-100 p-4 rounded-lg">
+              <CheckCircle size={28} className="text-green-500" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
+        {/* Card: Total de Afastamentos */}
+        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-orange-500">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 font-medium">Férias Ativas/Agendadas</p>
-              <h3 className="text-2xl font-bold text-[#2b3674]">{stats.totalFeriasAtivas}</h3>
+              <p className="text-gray-600 text-sm font-medium">Total de Afastamentos</p>
+              <p className="text-3xl font-bold text-[#2b3674] mt-2">{stats.totalAfastamentos}</p>
             </div>
-            <div className="p-3 bg-green-50 rounded-full">
-              <Clock className="text-green-500" size={24} />
+            <div className="bg-orange-100 p-4 rounded-lg">
+              <AlertCircle size={28} className="text-orange-500" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-red-500">
+        {/* Card: Medidas Ativas */}
+        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 font-medium">Medidas Ativas</p>
-              <h3 className="text-2xl font-bold text-[#2b3674]">{stats.totalMedidasAtivas}</h3>
+              <p className="text-gray-600 text-sm font-medium">Medidas Disciplinares Ativas</p>
+              <p className="text-3xl font-bold text-[#2b3674] mt-2">{stats.totalMedidasAtivas}</p>
             </div>
-            <div className="p-3 bg-red-50 rounded-full">
-              <TrendingDown className="text-red-500" size={24} />
+            <div className="bg-red-100 p-4 rounded-lg">
+              <TrendingDown size={28} className="text-red-500" />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        {/* Gráfico de Absenteísmo */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-bold text-[#2b3674] mb-6">Tendência de Absenteísmo (Faltas)</h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+      {/* Cards de Estatísticas - Segunda Linha */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        {/* Card: Taxa de Absenteísmo */}
+        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-600 text-sm font-medium">Taxa de Absenteísmo</p>
+              <p className="text-3xl font-bold text-[#2b3674] mt-2">
+                {stats.totalColaboradores > 0
+                  ? ((stats.totalAfastamentos / stats.totalColaboradores) * 100).toFixed(1)
+                  : '0'}
+                %
+              </p>
+            </div>
+            <div className="bg-purple-100 p-4 rounded-lg">
+              <TrendingDown size={28} className="text-purple-500" />
+            </div>
+          </div>
+        </div>
+
+        {/* Card: Férias em Andamento */}
+        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-cyan-500">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-600 text-sm font-medium">Férias em Andamento</p>
+              <p className="text-3xl font-bold text-[#2b3674] mt-2">{stats.totalFeriasAtivas}</p>
+            </div>
+            <div className="bg-cyan-100 p-4 rounded-lg">
+              <Clock size={28} className="text-cyan-500" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Gráficos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Gráfico de Absenteísmo por Mês */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-bold text-[#2b3674] mb-6">Absenteísmo por Mês (Últimos 6 Meses)</h3>
+
+          {stats.graficoAbsenteismo.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
               <BarChart data={stats.graficoAbsenteismo}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="mes" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="faltas" name="Total de Faltas" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+                <XAxis dataKey="mes" stroke="#666" />
+                <YAxis stroke="#666" />
+                <Tooltip contentStyle={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb' }} />
+                <Bar dataKey="faltas" fill="#2b3674" name="Quantidade de Faltas" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          ) : (
+            <div className="flex items-center justify-center h-80 text-gray-500">
+              <p>Nenhum dado de absenteísmo disponível</p>
+            </div>
+          )}
         </div>
 
-        {/* Gráfico de Composição do Efetivo */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-bold text-[#2b3674] mb-6">Status do Efetivo</h3>
-          <div className="h-80">
-            {stats.totalColaboradores > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stats.graficoColaboradores}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {stats.graficoColaboradores.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                <p>Sem dados de colaboradores para exibir</p>
-              </div>
-            )}
-          </div>
+        {/* Gráfico de Colaboradores Ativos vs Inativos */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-bold text-[#2b3674] mb-6">Distribuição de Colaboradores</h3>
+
+          {stats.totalColaboradores > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={stats.graficoColaradores}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value }) => `${name}: ${value}`}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {stats.graficoColaradores.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-80 text-gray-500">
+              <p>Nenhum colaborador cadastrado</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Resumo Executivo */}
+      {/* Resumo Rápido */}
       <div className="bg-gradient-to-r from-[#2b3674] to-blue-600 rounded-lg shadow-md p-6 text-white">
         <h3 className="text-lg font-bold mb-4">Resumo Executivo</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <p className="text-blue-100 text-sm">Taxa de Afastamento</p>
+            <p className="text-blue-100 text-sm">Taxa de Absenteísmo</p>
             <p className="text-2xl font-bold">
               {stats.totalColaboradores > 0
                 ? ((stats.totalAfastamentos / stats.totalColaboradores) * 100).toFixed(1)
-                : '0.0'}
+                : '0'}
               %
             </p>
           </div>
@@ -237,12 +274,12 @@ export default function Dashboard() {
             <p className="text-2xl font-bold">{stats.colaboradoresInativos}</p>
           </div>
           <div>
-            <p className="text-blue-100 text-sm">Medidas Disciplinares</p>
+            <p className="text-blue-100 text-sm">Medidas Ativas</p>
             <p className="text-2xl font-bold">{stats.totalMedidasAtivas}</p>
           </div>
           <div>
-            <p className="text-blue-100 text-sm">Efetivo Ativo</p>
-            <p className="text-2xl font-bold">{stats.colaboradoresAtivos}</p>
+            <p className="text-blue-100 text-sm">Férias em Andamento</p>
+            <p className="text-2xl font-bold">{stats.totalFeriasAtivas}</p>
           </div>
         </div>
       </div>
