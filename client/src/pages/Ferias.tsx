@@ -264,7 +264,7 @@ export default function Ferias() {
             className="flex items-center gap-2 px-4 py-2 bg-[#2b3674] text-white rounded-lg hover:bg-blue-800 transition-colors"
           >
             <Plus size={20} />
-            <span>Nova Féria</span>
+            <span>Nova Férias</span>
           </button>
 
           <button
