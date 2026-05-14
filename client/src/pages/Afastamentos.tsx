@@ -197,7 +197,7 @@ export default function Afastamentos() {
     return `${ano}-${mes}-${dia}`;
   };
 
-  // CORREÇÃO: Função para formatar a data na tabela ignorando o fuso horário
+  // Função para formatar a data na tabela ignorando o fuso horário
   const formatarDataLocal = (dataString: string | null) => {
     if (!dataString) return '-';
     // Pega apenas a parte YYYY-MM-DD (ignorando o T00:00:00Z se existir no banco)
@@ -289,7 +289,7 @@ export default function Afastamentos() {
       const headers = ['matricula', 'data_inicio', 'data_fim', 'motivo', 'cid', 'status', 'observacoes'];
       const rows = filteredAfastamentos.map((af) => [
         af.matricula,
-        af.data_inicio ? af.data_inicio.split('T')[0] : '', // Exporta limpo também
+        af.data_inicio ? af.data_inicio.split('T')[0] : '',
         af.data_fim ? af.data_fim.split('T')[0] : '',
         af.motivo || '',
         af.cid || '',
@@ -402,7 +402,6 @@ export default function Afastamentos() {
                       <td className="px-6 py-4 text-sm font-medium text-[#2b3674]">{afastamento.matricula}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">{colaborador?.nome || '-'}</td>
                       
-                      {/* Células atualizadas com a nova função */}
                       <td className="px-6 py-4 text-sm text-gray-700">
                         {formatarDataLocal(afastamento.data_inicio)}
                       </td>
@@ -448,6 +447,19 @@ export default function Afastamentos() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* DICA DE IMPORTAÇÃO (Nova seção adicionada aqui) */}
+      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p className="text-sm text-blue-800">
+          <strong>Dica:</strong> Para importar afastamentos, prepare um arquivo CSV com as colunas:
+          <code className="bg-white px-2 py-1 rounded ml-2 font-mono text-xs shadow-sm">
+            matricula, data_inicio, data_fim, motivo, cid, status, observacoes
+          </code>
+        </p>
+        <p className="text-xs text-blue-700 mt-2 flex items-center gap-1">
+          <span className="font-semibold">Importante:</span> As datas devem estar no formato DD/MM/AAAA (ex: 15/01/2020)
+        </p>
       </div>
 
       {/* Modal */}
