@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentPage: 'dashboard' | 'efetivo' | 'ferias' | 'medidas' | 'afastamentos' | 'rotatividade';
+  currentPage: 'dashboard' | 'efetivo' | 'ferias' | 'medidas' | 'afastamentos' | 'rotatividade' | 'feedbacks';
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, currentPage }) => {
@@ -60,6 +60,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentPage }) => {
       label: 'Rotatividade',
       icon: UserX,
       href: '/rotatividade',
+    },
+    {
+      id: 'feedbacks',
+      label: 'Feedbacks',
+      icon: Calendar,
+      href: '/feedbacks',
     },
   ];
 
