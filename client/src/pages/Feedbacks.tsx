@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { supabase } from '@/lib/supabase';
-import { CSVFormatTip } from '@/components/CSVFormatTip';
 import { Plus, Trash2, Edit2, Search, X, Upload, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -237,6 +236,13 @@ export default function Feedbacks() {
     return `${ano}-${mes}-${dia}`;
   };
 
+  // Formatar data local na tabela
+  const formatarDataLocal = (dataString: string | null) => {
+    if (!dataString) return '-';
+    const dataSemHora = dataString.split('T')[0]; 
+    return dataSemHora.split('-').reverse().join('/');
+  };
+
   // Importar CSV
   const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -364,16 +370,6 @@ export default function Feedbacks() {
               className="hidden"
             />
           </label>
-
-          <CSVFormatTip
-            title="Formato de Importacao - Feedbacks"
-            headers={['matricula', 'data_feedback', 'tipo_feedback', 'assunto', 'descricao', 'pontos_positivos', 'pontos_melhorar', 'proximas_acoes', 'responsavel_feedback', 'status', 'data_proxima_revisao', 'observacoes']}
-            example={[
-              ['M001', '01/05/2026', 'Alinhamento', 'Desempenho Q1', 'Discussao sobre metas', 'Entrega no prazo', 'Melhorar comunicacao', 'Reuniao semanal', 'Gerente', 'Aberto', '01/06/2026', 'Feedback positivo'],
-              ['M002', '15/05/2026', 'Revisao', 'Desenvolvimento', 'Plano de carreira', 'Proativo', 'Tecnicas de lideranca', 'Curso de lideranca', 'Gerente', 'Aberto', '15/06/2026', 'Potencial de crescimento'],
-            ]}
-            description="Importe feedbacks usando um arquivo CSV. Datas devem estar em formato DD/MM/AAAA. Tipos: Alinhamento, Revisao, Feedback Informal, Avaliacao Formal. Status: Aberto ou Fechado."
-          />
         </div>
       </div>
 
@@ -410,7 +406,11 @@ export default function Feedbacks() {
                     <tr key={feedback.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                       <td className="px-4 py-3 text-sm text-gray-700">{feedback.matricula}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{colaborador?.nome || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{feedback.data_feedback || '-'}</td>
+                      
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {formatarDataLocal(feedback.data_feedback)}
+                      </td>
+                      
                       <td className="px-4 py-3 text-sm text-gray-700">{feedback.tipo_feedback || '-'}</td>
                       <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">{feedback.assunto || '-'}</td>
                       <td className="px-4 py-3 text-sm">
@@ -447,10 +447,23 @@ export default function Feedbacks() {
         )}
       </div>
 
+      {/* DICA DE IMPORTAÇÃO PARA FEEDBACKS */}
+      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p className="text-sm text-blue-800">
+          <strong>Dica:</strong> Para importar feedbacks, prepare um arquivo CSV com as colunas:
+          <code className="bg-white px-2 py-1 rounded ml-2 font-mono text-xs shadow-sm">
+            matricula, data_feedback, tipo_feedback, assunto, descricao, pontos_positivos, pontos_melhorar, proximas_acoes, responsavel_feedback, status, data_proxima_revisao, observacoes
+          </code>
+        </p>
+        <p className="text-xs text-blue-700 mt-2 flex items-center gap-1">
+          <span className="font-semibold">Importante:</span> As datas devem estar no formato DD/MM/AAAA (ex: 15/01/2020)
+        </p>
+      </div>
+
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl max-h-96 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-[#2b3674]">
                 {editingId ? 'Editar Feedback' : 'Novo Feedback'}
