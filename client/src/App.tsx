@@ -14,6 +14,7 @@ import Ferias from "./pages/Ferias";
 import Medidas from "./pages/Medidas";
 import Afastamentos from "./pages/Afastamentos";
 import Rotatividade from "./pages/Rotatividade";
+import Feedbacks from "./pages/Feedbacks";
 
 function Router() {
   const { user, loading } = useAuth();
@@ -31,6 +32,7 @@ function Router() {
       <Route path={"/medidas"} component={() => <PrivateRoute component={Medidas} />} />
       <Route path={"/afastamentos"} component={() => <PrivateRoute component={Afastamentos} />} />
       <Route path={"/rotatividade"} component={() => <PrivateRoute component={Rotatividade} />} />
+      <Route path={"/feedbacks"} component={() => <PrivateRoute component={Feedbacks} />} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
