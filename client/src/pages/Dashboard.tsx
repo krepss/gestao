@@ -2,7 +2,7 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { useColaborador } from '@/contexts/ColaboradorContext';
 import { supabase } from '@/lib/supabase';
-import { Users, AlertCircle, TrendingDown, Clock, Activity, BarChart2 } from 'lucide-react';
+import { Users, AlertCircle, TrendingDown, Clock, Activity, BarChart2, CheckCircle2, CalendarDays } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
   ResponsiveContainer, PieChart, Pie, Cell 
@@ -11,7 +11,9 @@ import {
 interface Ferias {
   id: number;
   matricula: string;
-  status: string;
+  data_inicio: string | null;
+  data_fim: string | null;
+  status?: string;
 }
 
 interface MedidaDisciplinar {
@@ -53,8 +55,37 @@ export default function Dashboard() {
     const colaboradoresAtivos = colaboradores.filter((c) => c.status === 'Ativo').length;
     const colaboradoresInativos = totalColaboradores - colaboradoresAtivos;
     const totalAfastamentos = afastamentos.length; 
-    const totalFeriasAtivas = ferias.filter((f) => f.status === 'Em Andamento' || f.status === 'Agendada').length;
     const totalMedidasAtivas = medidas.filter((m) => m.status === 'Ativa').length;
+
+    // Lógica de Status Automática e Filtro Anual para Férias
+    const anoAtual = new Date().getFullYear();
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const hojeStr = hoje.toISOString().split('T')[0];
+
+    let feriasAgendadas = 0;
+    let feriasEmAndamento = 0;
+    let feriasConcluidasNoAno = 0;
+
+    ferias.forEach((f) => {
+      if (!f.data_inicio || !f.data_fim) return;
+      
+      const inicioLimpo = f.data_inicio.split('T')[0];
+      const fimLimpo = f.data_fim.split('T')[0];
+
+      // Determinar o status dinamicamente
+      if (hojeStr < inicioLimpo) {
+        feriasAgendadas++;
+      } else if (hojeStr >= inicioLimpo && hojeStr <= fimLimpo) {
+        feriasEmAndamento++;
+      } else {
+        // Se já concluiu, verifica se foi dentro do ano atual
+        const anoFim = new Date(fimLimpo).getFullYear();
+        if (anoFim === anoAtual) {
+          feriasConcluidasNoAno++;
+        }
+      }
+    });
 
     // Lógica para o gráfico de Absenteísmo (baseado em faltas mensais)
     const absenteismoPorMes: Record<string, { mes: string; faltas: number; horas: number }> = {};
@@ -92,10 +123,13 @@ export default function Dashboard() {
       colaboradoresAtivos,
       colaboradoresInativos,
       totalAfastamentos,
-      totalFeriasAtivas,
       totalMedidasAtivas,
+      feriasAgendadas,
+      feriasEmAndamento,
+      feriasConcluidasNoAno,
       graficoAbsenteismo,
       graficoColaboradores,
+      anoAtual
     };
   }, [colaboradores, faltas, ferias, medidas, afastamentos]);
 
@@ -119,58 +153,90 @@ export default function Dashboard() {
         <p className="text-gray-500 mt-1">Acompanhe os principais indicadores de gestão de talentos da sua empresa.</p>
       </div>
 
-      {/* Cards de Indicadores Rápidos (Novo Design) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      {/* Cards de Indicadores Rápidos (Atualizado com sub-detalhamentos de Férias) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 mb-10">
         
-        {/* Card 1 */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl group-hover:scale-110 transition-transform">
-              <Users size={24} strokeWidth={2.5} />
+        {/* Card 1: Total Colaboradores */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group xl:col-span-2">
+          <div className="flex justify-between items-start mb-3">
+            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl group-hover:scale-105 transition-transform">
+              <Users size={22} strokeWidth={2.5} />
             </div>
           </div>
           <div>
-            <h3 className="text-4xl font-extrabold text-[#2b3674] tracking-tight">{stats.totalColaboradores}</h3>
-            <p className="text-sm font-medium text-gray-500 mt-1">Total de Colaboradores</p>
+            <h3 className="text-3xl font-extrabold text-[#2b3674] tracking-tight">{stats.totalColaboradores}</h3>
+            <p className="text-xs font-semibold text-gray-500 mt-0.5">Total de Colaboradores</p>
           </div>
         </div>
 
-        {/* Card 2 */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-amber-50 text-amber-500 rounded-xl group-hover:scale-110 transition-transform">
-              <AlertCircle size={24} strokeWidth={2.5} />
+        {/* Card 2: Afastamentos */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group xl:col-span-2">
+          <div className="flex justify-between items-start mb-3">
+            <div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl group-hover:scale-105 transition-transform">
+              <AlertCircle size={22} strokeWidth={2.5} />
             </div>
           </div>
           <div>
-            <h3 className="text-4xl font-extrabold text-[#2b3674] tracking-tight">{stats.totalAfastamentos}</h3>
-            <p className="text-sm font-medium text-gray-500 mt-1">Afastamentos Ativos</p>
+            <h3 className="text-3xl font-extrabold text-[#2b3674] tracking-tight">{stats.totalAfastamentos}</h3>
+            <p className="text-xs font-semibold text-gray-500 mt-0.5">Afastamentos Ativos</p>
           </div>
         </div>
 
-        {/* Card 3 */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-emerald-50 text-emerald-500 rounded-xl group-hover:scale-110 transition-transform">
-              <Clock size={24} strokeWidth={2.5} />
+        {/* Card 3: Medidas Disciplinares */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group xl:col-span-2">
+          <div className="flex justify-between items-start mb-3">
+            <div className="p-2.5 bg-rose-50 text-rose-500 rounded-xl group-hover:scale-105 transition-transform">
+              <TrendingDown size={22} strokeWidth={2.5} />
             </div>
           </div>
           <div>
-            <h3 className="text-4xl font-extrabold text-[#2b3674] tracking-tight">{stats.totalFeriasAtivas}</h3>
-            <p className="text-sm font-medium text-gray-500 mt-1">Férias Agendadas</p>
+            <h3 className="text-3xl font-extrabold text-[#2b3674] tracking-tight">{stats.totalMedidasAtivas}</h3>
+            <p className="text-xs font-semibold text-gray-500 mt-0.5">Medidas Disciplinares</p>
           </div>
         </div>
 
-        {/* Card 4 */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-rose-50 text-rose-500 rounded-xl group-hover:scale-110 transition-transform">
-              <TrendingDown size={24} strokeWidth={2.5} />
+        {/* CARD NOVO 4: Férias Agendadas */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group xl:col-span-2">
+          <div className="flex justify-between items-start mb-3">
+            <div className="p-2.5 bg-sky-50 text-sky-600 rounded-xl group-hover:scale-105 transition-transform">
+              <CalendarDays size={22} strokeWidth={2.5} />
             </div>
           </div>
           <div>
-            <h3 className="text-4xl font-extrabold text-[#2b3674] tracking-tight">{stats.totalMedidasAtivas}</h3>
-            <p className="text-sm font-medium text-gray-500 mt-1">Medidas Disciplinares</p>
+            <h3 className="text-3xl font-extrabold text-[#2b3674] tracking-tight">{stats.feriasAgendadas}</h3>
+            <p className="text-xs font-semibold text-gray-500 mt-0.5">Férias Agendadas (Futuras)</p>
+          </div>
+        </div>
+
+        {/* CARD NOVO 5: Férias Em Andamento */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group xl:col-span-2">
+          <div className="flex justify-between items-start mb-3">
+            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl group-hover:scale-105 transition-transform">
+              <Clock size={22} strokeWidth={2.5} />
+            </div>
+            {stats.feriasEmAndamento > 0 && (
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+            )}
+          </div>
+          <div>
+            <h3 className="text-3xl font-extrabold text-[#2b3674] tracking-tight">{stats.feriasEmAndamento}</h3>
+            <p className="text-xs font-semibold text-gray-500 mt-0.5">Férias em Andamento (Hoje)</p>
+          </div>
+        </div>
+
+        {/* CARD NOVO 6: Férias Concluídas no Ano */}
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group xl:col-span-2">
+          <div className="flex justify-between items-start mb-3">
+            <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl group-hover:scale-105 transition-transform">
+              <CheckCircle2 size={22} strokeWidth={2.5} />
+            </div>
+          </div>
+          <div>
+            <h3 className="text-3xl font-extrabold text-[#2b3674] tracking-tight">{stats.feriasConcluidasNoAno}</h3>
+            <p className="text-xs font-semibold text-gray-500 mt-0.5">Férias Concluídas em {stats.anoAtual}</p>
           </div>
         </div>
 
@@ -178,7 +244,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
         
-        {/* Gráfico de Absenteísmo (Ocupa 2 colunas) */}
+        {/* Gráfico de Absenteísmo */}
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
@@ -203,11 +269,11 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Gráfico de Composição do Efetivo (Ocupa 1 coluna) */}
+        {/* Gráfico de Composição do Efetivo */}
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-              <PieChart size={20} />
+              <Activity size={20} />
             </div>
             <h3 className="text-lg font-bold text-[#2b3674]">Status do Efetivo</h3>
           </div>
@@ -236,7 +302,6 @@ export default function Dashboard() {
                     />
                   </PieChart>
                 </ResponsiveContainer>
-                {/* Texto central do Donut Chart */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-3xl font-bold text-[#2b3674]">{stats.colaboradoresAtivos}</span>
                   <span className="text-xs font-medium text-gray-500">ATIVOS</span>
@@ -250,7 +315,6 @@ export default function Dashboard() {
             )}
           </div>
           
-          {/* Legenda Customizada */}
           <div className="flex justify-center gap-6 mt-4">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-[#10b981]"></div>
@@ -266,7 +330,6 @@ export default function Dashboard() {
 
       {/* Painel de Resumo Executivo */}
       <div className="bg-gradient-to-br from-[#1e2759] to-[#2b3674] rounded-2xl shadow-lg p-8 text-white relative overflow-hidden">
-        {/* Efeito visual de fundo */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
         
         <h3 className="text-xl font-bold mb-6 flex items-center gap-3 relative z-10">
