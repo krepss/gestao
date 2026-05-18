@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Layout } from '@/components/Layout';
 import { useColaborador } from '@/contexts/ColaboradorContext';
-import { Plus, Trash2, Edit2, Search, X, Upload, Download } from 'lucide-react';
+import { Plus, Trash2, Edit2, Search, X, Upload, Download, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Ferias() {
@@ -15,7 +15,6 @@ export default function Ferias() {
     data_fim: '',
     dias_utilizados: '',
     dias_restantes: '',
-    status: 'Agendada',
     observacoes: '',
   });
 
@@ -46,7 +45,6 @@ export default function Ferias() {
         data_fim: formatarDataInput(feria.data_fim),
         dias_utilizados: feria.dias_utilizados?.toString() || '',
         dias_restantes: feria.dias_restantes?.toString() || '',
-        status: feria.status || 'Agendada',
         observacoes: feria.observacoes || '',
       });
     } else {
@@ -57,7 +55,6 @@ export default function Ferias() {
         data_fim: '',
         dias_utilizados: '',
         dias_restantes: '',
-        status: 'Agendada',
         observacoes: '',
       });
     }
@@ -73,16 +70,43 @@ export default function Ferias() {
       data_fim: '',
       dias_utilizados: '',
       dias_restantes: '',
-      status: 'Agendada',
       observacoes: '',
+    });
+  };
+
+  // NOVA FUNÇÃO: Calcula os dias automaticamente quando escolhe as datas
+  const handleDateChange = (field: 'data_inicio' | 'data_fim', value: string) => {
+    setFormData((prev) => {
+      const newData = { ...prev, [field]: value };
+      
+      // Se ambas as datas estiverem preenchidas, fazemos a matemática
+      if (newData.data_inicio && newData.data_fim) {
+        // Usa UTC para evitar que o fuso horário roube 1 dia no cálculo
+        const inicio = new Date(`${newData.data_inicio}T00:00:00Z`);
+        const fim = new Date(`${newData.data_fim}T00:00:00Z`);
+        
+        if (fim >= inicio) {
+          // Calcula a diferença em milissegundos e converte para dias
+          const diffTime = fim.getTime() - inicio.getTime();
+          // Soma 1 para incluir o próprio dia de início no cálculo
+          const diasUsados = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          
+          // Assumimos 30 dias de direito por padrão
+          const diasRestantes = 30 - diasUsados;
+          
+          newData.dias_utilizados = diasUsados.toString();
+          newData.dias_restantes = diasRestantes >= 0 ? diasRestantes.toString() : '0';
+        }
+      }
+      return newData;
     });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.matricula) {
-      toast.error('Selecione um colaborador');
+    if (!formData.matricula || !formData.data_inicio || !formData.data_fim) {
+      toast.error('Matrícula, Data de Início e Fim são obrigatórias');
       return;
     }
 
@@ -93,7 +117,6 @@ export default function Ferias() {
         data_fim: formData.data_fim || null,
         dias_utilizados: formData.dias_utilizados ? parseInt(formData.dias_utilizados) : null,
         dias_restantes: formData.dias_restantes ? parseInt(formData.dias_restantes) : null,
-        status: formData.status,
         observacoes: formData.observacoes || null,
       };
 
@@ -123,11 +146,46 @@ export default function Ferias() {
     return `${ano}-${mes}-${dia}`;
   };
 
-  // CORREÇÃO: Função para formatar a data na tabela ignorando o fuso horário
+  // Formatar a data na tabela ignorando fuso horário
   const formatarDataLocal = (dataString: string | null) => {
     if (!dataString) return '-';
     const dataSemHora = dataString.split('T')[0]; 
     return dataSemHora.split('-').reverse().join('/');
+  };
+
+  // Extrair e formatar o mês por extenso com base na data de início
+  const obterMesReferencia = (dataString: string | null) => {
+    if (!dataString) return '-';
+    const dataSemHora = dataString.split('T')[0];
+    const [, mesIncorreto] = dataSemHora.split('-');
+    
+    const meses = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+    ];
+    
+    const indice = parseInt(mesIncorreto, 10) - 1;
+    return meses[indice] || '-';
+  };
+
+  // Calcular Status Dinâmico Automático
+  const calcularStatusAutomatico = (dataInicioStr: string | null, dataFimStr: string | null) => {
+    if (!dataInicioStr || !dataFimStr) return 'Não Definido';
+    
+    const inicioLimpo = dataInicioStr.split('T')[0];
+    const fimLimpo = dataFimStr.split('T')[0];
+    
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const hojeStr = hoje.toISOString().split('T')[0];
+
+    if (hojeStr < inicioLimpo) {
+      return 'Agendada';
+    } else if (hojeStr >= inicioLimpo && hojeStr <= fimLimpo) {
+      return 'Em Andamento';
+    } else {
+      return 'Concluída';
+    }
   };
 
   // Importar CSV
@@ -145,11 +203,10 @@ export default function Ferias() {
       const dataFimIndex = headers.indexOf('data_fim');
       const diasUtilizadosIndex = headers.indexOf('dias_utilizados');
       const diasRestantesIndex = headers.indexOf('dias_restantes');
-      const statusIndex = headers.indexOf('status');
       const observacoesIndex = headers.indexOf('observacoes');
 
-      if (matriculaIndex === -1 || dataInicioIndex === -1) {
-        toast.error('CSV deve conter colunas "matricula" e "data_inicio"');
+      if (matriculaIndex === -1 || dataInicioIndex === -1 || dataFimIndex === -1) {
+        toast.error('CSV deve conter matricula, data_inicio e data_fim');
         return;
       }
 
@@ -163,8 +220,9 @@ export default function Ferias() {
         const values = line.split(',').map((v) => v.trim());
         const matricula = values[matriculaIndex];
         const dataInicio = values[dataInicioIndex];
+        const dataFim = values[dataFimIndex];
 
-        if (!matricula || !dataInicio) {
+        if (!matricula || !dataInicio || !dataFim) {
           errorCount++;
           continue;
         }
@@ -173,10 +231,9 @@ export default function Ferias() {
           const novaFeria = {
             matricula,
             data_inicio: converterDataBrasileira(dataInicio),
-            data_fim: values[dataFimIndex] ? converterDataBrasileira(values[dataFimIndex]) : null,
+            data_fim: converterDataBrasileira(dataFim),
             dias_utilizados: values[diasUtilizadosIndex] ? parseInt(values[diasUtilizadosIndex]) : null,
             dias_restantes: values[diasRestantesIndex] ? parseInt(values[diasRestantesIndex]) : null,
-            status: values[statusIndex] || 'Agendada',
             observacoes: values[observacoesIndex] || null,
           };
 
@@ -202,14 +259,13 @@ export default function Ferias() {
   // Exportar CSV
   const handleExportCSV = () => {
     try {
-      const headers = ['matricula', 'data_inicio', 'data_fim', 'dias_utilizados', 'dias_restantes', 'status', 'observacoes'];
+      const headers = ['matricula', 'data_inicio', 'data_fim', 'dias_utilizados', 'dias_restantes', 'observacoes'];
       const rows = filteredFerias.map((f) => [
         f.matricula,
-        f.data_inicio ? f.data_inicio.split('T')[0] : '', // Exporta limpo
+        f.data_inicio ? f.data_inicio.split('T')[0] : '',
         f.data_fim ? f.data_fim.split('T')[0] : '',
         f.dias_utilizados || '',
         f.dias_restantes || '',
-        f.status || '',
         f.observacoes || '',
       ]);
 
@@ -243,9 +299,8 @@ export default function Ferias() {
 
   return (
     <Layout currentPage="ferias">
-      {/* Header com Pesquisa e Botão Novo */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row gap-4 mb-8 items-center justify-between">
-        {/* Pesquisa */}
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-3 text-gray-400" size={20} />
           <input
@@ -257,14 +312,13 @@ export default function Ferias() {
           />
         </div>
 
-        {/* Botões */}
         <div className="flex gap-2">
           <button
             onClick={() => handleOpenModal()}
             className="flex items-center gap-2 px-4 py-2 bg-[#2b3674] text-white rounded-lg hover:bg-blue-800 transition-colors"
           >
             <Plus size={20} />
-            <span>Nova Férias</span>
+            <span>Novas Férias</span>
           </button>
 
           <button
@@ -307,6 +361,7 @@ export default function Ferias() {
                 <tr>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Matrícula</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Colaborador</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Mês Ref.</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Início</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Fim</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Dias Utilizados</th>
@@ -317,6 +372,8 @@ export default function Ferias() {
               <tbody>
                 {filteredFerias.map((feria, index) => {
                   const colaborador = colaboradores.find((c) => c.matricula === feria.matricula);
+                  const statusDinamico = calcularStatusAutomatico(feria.data_inicio, feria.data_fim);
+                  
                   return (
                     <tr
                       key={feria.id}
@@ -327,7 +384,11 @@ export default function Ferias() {
                       <td className="px-6 py-4 text-sm font-medium text-[#2b3674]">{feria.matricula}</td>
                       <td className="px-6 py-4 text-sm text-gray-700">{colaborador?.nome || '-'}</td>
                       
-                      {/* Corrigido o bug do fuso horário na visualização da data */}
+                      <td className="px-6 py-4 text-sm font-medium text-gray-600 flex items-center gap-1.5">
+                        <Calendar size={14} className="text-gray-400" />
+                        {obterMesReferencia(feria.data_inicio)}
+                      </td>
+                      
                       <td className="px-6 py-4 text-sm text-gray-700">
                         {formatarDataLocal(feria.data_inicio)}
                       </td>
@@ -336,17 +397,18 @@ export default function Ferias() {
                       </td>
                       
                       <td className="px-6 py-4 text-sm text-gray-700">{feria.dias_utilizados || '-'}</td>
+                      
                       <td className="px-6 py-4 text-sm">
                         <span
                           className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            feria.status === 'Concluída'
+                            statusDinamico === 'Concluída'
                               ? 'bg-green-100 text-green-800'
-                              : feria.status === 'Agendada'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-gray-100 text-gray-800'
+                              : statusDinamico === 'Em Andamento'
+                              ? 'bg-amber-100 text-amber-800 animate-pulse'
+                              : 'bg-blue-100 text-blue-800'
                           }`}
                         >
-                          {feria.status || '-'}
+                          {statusDinamico}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">
@@ -374,12 +436,12 @@ export default function Ferias() {
         )}
       </div>
 
-      {/* DICA DE IMPORTAÇÃO PARA FÉRIAS */}
+      {/* Dica de Importação */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-800">
           <strong>Dica:</strong> Para importar férias, prepare um arquivo CSV com as colunas:
           <code className="bg-white px-2 py-1 rounded ml-2 font-mono text-xs shadow-sm">
-            matricula, data_inicio, data_fim, dias_utilizados, dias_restantes, status, observacoes
+            matricula, data_inicio, data_fim, dias_utilizados, dias_restantes, observacoes
           </code>
         </p>
         <p className="text-xs text-blue-700 mt-2 flex items-center gap-1">
@@ -393,7 +455,7 @@ export default function Ferias() {
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-[#2b3674]">
-                {editingId ? 'Editar Féria' : 'Nova Féria'}
+                {editingId ? 'Editar Férias' : 'Novas Férias'}
               </h3>
               <button
                 onClick={handleCloseModal}
@@ -404,7 +466,6 @@ export default function Ferias() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Colaborador */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Colaborador *</label>
                 <select
@@ -421,65 +482,49 @@ export default function Ferias() {
                 </select>
               </div>
 
-              {/* Data Início */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Data de Início</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Data de Início *</label>
                 <input
                   type="date"
                   value={formData.data_inicio}
-                  onChange={(e) => setFormData({ ...formData, data_inicio: e.target.value })}
+                  // Chama a nossa nova função matemática!
+                  onChange={(e) => handleDateChange('data_inicio', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
-              {/* Data Fim */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Data de Fim</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Data de Fim *</label>
                 <input
                   type="date"
                   value={formData.data_fim}
-                  onChange={(e) => setFormData({ ...formData, data_fim: e.target.value })}
+                  // Chama a nossa nova função matemática!
+                  onChange={(e) => handleDateChange('data_fim', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
-              {/* Dias Utilizados */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Dias Utilizados</label>
                 <input
                   type="number"
                   value={formData.dias_utilizados}
                   onChange={(e) => setFormData({ ...formData, dias_utilizados: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
                 />
               </div>
 
-              {/* Dias Restantes */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Dias Restantes</label>
                 <input
                   type="number"
                   value={formData.dias_restantes}
                   onChange={(e) => setFormData({ ...formData, dias_restantes: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                  placeholder="Base de cálculo: 30 dias"
                 />
               </div>
 
-              {/* Status */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="Agendada">Agendada</option>
-                  <option value="Em Andamento">Em Andamento</option>
-                  <option value="Concluída">Concluída</option>
-                </select>
-              </div>
-
-              {/* Observações */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
                 <textarea
@@ -490,7 +535,6 @@ export default function Ferias() {
                 />
               </div>
 
-              {/* Botões */}
               <div className="flex gap-2 pt-4">
                 <button
                   type="button"
